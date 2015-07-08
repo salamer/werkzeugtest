@@ -14,4 +14,4 @@ pip install redis
 
 cd shortly
 
-python shortly.py
+python werkzeugdemo.py
