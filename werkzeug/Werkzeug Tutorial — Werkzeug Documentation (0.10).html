@@ -1,0 +1,572 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!-- saved from url=(0045)http://werkzeug.pocoo.org/docs/0.10/tutorial/ -->
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    
+    <title>Werkzeug Tutorial — Werkzeug Documentation (0.10)</title>
+    
+    <link rel="stylesheet" href="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/werkzeug.css" type="text/css">
+    <link rel="stylesheet" href="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/pygments.css" type="text/css">
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.10.5-dev',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/jquery.js"></script>
+    <script type="text/javascript" src="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/underscore.js"></script>
+    <script type="text/javascript" src="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/doctools.js"></script>
+    <link rel="top" title="Werkzeug Documentation (0.10)" href="http://werkzeug.pocoo.org/docs/0.10/">
+    <link rel="next" title="API Levels" href="http://werkzeug.pocoo.org/docs/0.10/levels/">
+    <link rel="prev" title="Transition to Werkzeug 1.0" href="http://werkzeug.pocoo.org/docs/0.10/transition/">
+   
+  
+    
+  
+  <link rel="canonical" href="http://werkzeug.pocoo.org/docs/latest/tutorial/">
+  <link media="only screen and (max-device-width: 480px)" href="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/small.css" type="text/css" rel="stylesheet">
+
+  </head>
+  <body role="document">
+  
+  
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="http://werkzeug.pocoo.org/docs/0.10/genindex/" title="General Index" accesskey="I">index</a></li>
+        <li class="right">
+          <a href="http://werkzeug.pocoo.org/docs/0.10/py-modindex/" title="Python Module Index">modules</a> |</li>
+        <li class="right">
+          <a href="http://werkzeug.pocoo.org/docs/0.10/levels/" title="API Levels" accesskey="N">next</a> |</li>
+        <li class="right">
+          <a href="http://werkzeug.pocoo.org/docs/0.10/transition/" title="Transition to Werkzeug 1.0" accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="http://werkzeug.pocoo.org/docs/0.10/">Werkzeug Documentation (0.10)</a> »</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+  
+  
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-werkzeug">
+<span id="werkzeug-tutorial"></span><h1>Werkzeug Tutorial<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#module-werkzeug" title="Permalink to this headline">¶</a></h1>
+<p>Welcome to the Werkzeug tutorial in which we will create a <a class="reference external" href="http://tinyurl.com/">TinyURL</a> clone
+that stores URLs in a redis instance.  The libraries we will use for this
+applications are <a class="reference external" href="http://jinja.pocoo.org/">Jinja</a> 2 for the templates, <a class="reference external" href="http://redis.io/">redis</a> for the database
+layer and, of course, Werkzeug for the WSGI layer.</p>
+<p>You can use <cite>pip</cite> to install the required libraries:</p>
+<div class="highlight-python"><div class="highlight"><pre>pip install Jinja2 redis
+</pre></div>
+</div>
+<p>Also make sure to have a redis server running on your local machine.  If
+you are on OS X, you can use <cite>brew</cite> to install it:</p>
+<div class="highlight-python"><div class="highlight"><pre>brew install redis
+</pre></div>
+</div>
+<p>If you are on Ubuntu or Debian, you can use apt-get:</p>
+<div class="highlight-python"><div class="highlight"><pre>sudo apt-get install redis-server
+</pre></div>
+</div>
+<p>Redis was developed for UNIX systems and was never really designed to
+work on Windows.  For development purposes, the unofficial ports however
+work well enough.  You can get them from <a class="reference external" href="https://github.com/dmajkic/redis/downloads">github</a>.</p>
+<div class="section" id="introducing-shortly">
+<h2>Introducing Shortly<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#introducing-shortly" title="Permalink to this headline">¶</a></h2>
+<p>In this tutorial, we will together create a simple URL shortener service
+with Werkzeug.  Please keep in mind that Werkzeug is not a framework, it’s
+a library with utilities to create your own framework or application and
+as such is very flexible.  The approach we use here is just one of many you
+can use.</p>
+<p>As data store, we will use <a class="reference external" href="http://redis.io/">redis</a> here instead of a relational database
+to keep this simple and because that’s the kind of job that <a class="reference external" href="http://redis.io/">redis</a>
+excels at.</p>
+<p>The final result will look something like this:</p>
+<img alt="a screenshot of shortly" src="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/shortly.png">
+</div>
+<div class="section" id="step-0-a-basic-wsgi-introduction">
+<h2>Step 0: A Basic WSGI Introduction<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-0-a-basic-wsgi-introduction" title="Permalink to this headline">¶</a></h2>
+<p>Werkzeug is a utility library for WSGI.  WSGI itself is a protocol or
+convention that ensures that your web application can speak with the
+webserver and more importantly that web applications work nicely together.</p>
+<p>A basic “Hello World” application in WSGI without the help of Werkzeug
+looks like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">application</span><span class="p">(</span><span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">):</span>
+    <span class="n">start_response</span><span class="p">(</span><span class="s">'200 OK'</span><span class="p">,</span> <span class="p">[(</span><span class="s">'Content-Type'</span><span class="p">,</span> <span class="s">'text/plain'</span><span class="p">)])</span>
+    <span class="k">return</span> <span class="p">[</span><span class="s">'Hello World!'</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>A WSGI application is something you can call and pass an environ dict
+and a <code class="docutils literal"><span class="pre">start_response</span></code> callable.  The environ contains all incoming
+information, the <code class="docutils literal"><span class="pre">start_response</span></code> function can be used to indicate the
+start of the response.  With Werkzeug you don’t have to deal directly with
+either as request and response objects are provided to work with them.</p>
+<p>The request data takes the environ object and allows you to access the
+data from that environ in a nice manner.  The response object is a WSGI
+application in itself and provides a much nicer way to create responses.</p>
+<p>Here is how you would write that application with response objects:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">werkzeug.wrappers</span> <span class="kn">import</span> <span class="n">Response</span>
+
+<span class="k">def</span> <span class="nf">application</span><span class="p">(</span><span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">):</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span><span class="s">'Hello World!'</span><span class="p">,</span> <span class="n">mimetype</span><span class="o">=</span><span class="s">'text/plain'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">response</span><span class="p">(</span><span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And here an expanded version that looks at the query string in the URL
+(more importantly at the <cite>name</cite> parameter in the URL to substitute “World”
+against another word):</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">werkzeug.wrappers</span> <span class="kn">import</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span>
+
+<span class="k">def</span> <span class="nf">application</span><span class="p">(</span><span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">):</span>
+    <span class="n">request</span> <span class="o">=</span> <span class="n">Request</span><span class="p">(</span><span class="n">environ</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s">'Hello </span><span class="si">%s</span><span class="s">!'</span> <span class="o">%</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'name'</span><span class="p">,</span> <span class="s">'World'</span><span class="p">)</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">mimetype</span><span class="o">=</span><span class="s">'text/plain'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">response</span><span class="p">(</span><span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And that’s all you need to know about WSGI.</p>
+</div>
+<div class="section" id="step-1-creating-the-folders">
+<h2>Step 1: Creating the Folders<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-1-creating-the-folders" title="Permalink to this headline">¶</a></h2>
+<p>Before we get started, let’s create the folders needed for this application:</p>
+<div class="highlight-python"><div class="highlight"><pre>/shortly
+    /static
+    /templates
+</pre></div>
+</div>
+<p>The shortly folder is not a python package, but just something where we
+drop our files.  Directly into this folder we will then put our main
+module in the following steps. The files inside the static folder are
+available to users of the application via HTTP.  This is the place where
+CSS and JavaScript files go. Inside the templates folder we will make
+Jinja2 look for templates.  The templates you create later in the tutorial
+will go in this directory.</p>
+</div>
+<div class="section" id="step-2-the-base-structure">
+<h2>Step 2: The Base Structure<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-2-the-base-structure" title="Permalink to this headline">¶</a></h2>
+<p>Now let’s get right into it and create a module for our application.  Let’s
+create a file called <cite>shortly.py</cite> in the <cite>shortly</cite> folder.  At first we
+will need a bunch of imports.  I will pull in all the imports here, even
+if they are not used right away, to keep it from being confusing:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">redis</span>
+<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">from</span> <span class="nn">werkzeug.wrappers</span> <span class="kn">import</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">werkzeug.routing</span> <span class="kn">import</span> <span class="n">Map</span><span class="p">,</span> <span class="n">Rule</span>
+<span class="kn">from</span> <span class="nn">werkzeug.exceptions</span> <span class="kn">import</span> <span class="n">HTTPException</span><span class="p">,</span> <span class="n">NotFound</span>
+<span class="kn">from</span> <span class="nn">werkzeug.wsgi</span> <span class="kn">import</span> <span class="n">SharedDataMiddleware</span>
+<span class="kn">from</span> <span class="nn">werkzeug.utils</span> <span class="kn">import</span> <span class="n">redirect</span>
+<span class="kn">from</span> <span class="nn">jinja2</span> <span class="kn">import</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">FileSystemLoader</span>
+</pre></div>
+</div>
+<p>Then we can create the basic structure for our application and a function
+to create a new instance of it, optionally with a piece of WSGI middleware
+that exports all the files on the <cite>static</cite> folder on the web:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Shortly</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">redis</span> <span class="o">=</span> <span class="n">redis</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s">'redis_host'</span><span class="p">],</span> <span class="n">config</span><span class="p">[</span><span class="s">'redis_port'</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">dispatch_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="s">'Hello World!'</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">wsgi_app</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">):</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="n">Request</span><span class="p">(</span><span class="n">environ</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dispatch_request</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="p">(</span><span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsgi_app</span><span class="p">(</span><span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">create_app</span><span class="p">(</span><span class="n">redis_host</span><span class="o">=</span><span class="s">'localhost'</span><span class="p">,</span> <span class="n">redis_port</span><span class="o">=</span><span class="mi">6379</span><span class="p">,</span> <span class="n">with_static</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">Shortly</span><span class="p">({</span>
+        <span class="s">'redis_host'</span><span class="p">:</span>       <span class="n">redis_host</span><span class="p">,</span>
+        <span class="s">'redis_port'</span><span class="p">:</span>       <span class="n">redis_port</span>
+    <span class="p">})</span>
+    <span class="k">if</span> <span class="n">with_static</span><span class="p">:</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">wsgi_app</span> <span class="o">=</span> <span class="n">SharedDataMiddleware</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">wsgi_app</span><span class="p">,</span> <span class="p">{</span>
+            <span class="s">'/static'</span><span class="p">:</span>  <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span> <span class="s">'static'</span><span class="p">)</span>
+        <span class="p">})</span>
+    <span class="k">return</span> <span class="n">app</span>
+</pre></div>
+</div>
+<p>Lastly we can add a piece of code that will start a local development
+server with automatic code reloading and a debugger:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">'__main__'</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">werkzeug.serving</span> <span class="kn">import</span> <span class="n">run_simple</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">()</span>
+    <span class="n">run_simple</span><span class="p">(</span><span class="s">'127.0.0.1'</span><span class="p">,</span> <span class="mi">5000</span><span class="p">,</span> <span class="n">app</span><span class="p">,</span> <span class="n">use_debugger</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">use_reloader</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The basic idea here is that our <code class="docutils literal"><span class="pre">Shortly</span></code> class is an actual WSGI
+application.  The <code class="docutils literal"><span class="pre">__call__</span></code> method directly dispatches to <code class="docutils literal"><span class="pre">wsgi_app</span></code>.
+This is done so that we can wrap <code class="docutils literal"><span class="pre">wsgi_app</span></code> to apply middlewares like we
+do in the <code class="docutils literal"><span class="pre">create_app</span></code> function.  The actual <code class="docutils literal"><span class="pre">wsgi_app</span></code> method then
+creates a <code class="xref py py-class docutils literal"><span class="pre">Request</span></code> object and calls the <code class="docutils literal"><span class="pre">dispatch_request</span></code>
+method which then has to return a <code class="xref py py-class docutils literal"><span class="pre">Response</span></code> object which is then
+evaluated as WSGI application again.  As you can see: turtles all the way
+down.  Both the <code class="docutils literal"><span class="pre">Shortly</span></code> class we create, as well as any request object
+in Werkzeug implements the WSGI interface.  As a result of that you could
+even return another WSGI application from the <code class="docutils literal"><span class="pre">dispatch_request</span></code> method.</p>
+<p>The <code class="docutils literal"><span class="pre">create_app</span></code> factory function can be used to create a new instance
+of our application.  Not only will it pass some parameters as
+configuration to the application but also optionally add a WSGI middleware
+that exports static files.  This way we have access to the files from the
+static folder even when we are not configuring our server to provide them
+which is very helpful for development.</p>
+</div>
+<div class="section" id="intermezzo-running-the-application">
+<h2>Intermezzo: Running the Application<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#intermezzo-running-the-application" title="Permalink to this headline">¶</a></h2>
+<p>Now you should be able to execute the file with <cite>python</cite> and see a server
+on your local machine:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python shortly.py
+ * Running on http://127.0.0.1:5000/
+ * Restarting with reloader: stat() polling
+</pre></div>
+</div>
+<p>It also tells you that the reloader is active.  It will use various
+techniques to figure out if any file changed on the disk and then
+automatically restart.</p>
+<p>Just go to the URL and you should see “Hello World!”.</p>
+</div>
+<div class="section" id="step-3-the-environment">
+<h2>Step 3: The Environment<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-3-the-environment" title="Permalink to this headline">¶</a></h2>
+<p>Now that we have the basic application class, we can make the constructor
+do something useful and provide a few helpers on there that can come in
+handy.  We will need to be able to render templates and connect to redis,
+so let’s extend the class a bit:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">redis</span> <span class="o">=</span> <span class="n">redis</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s">'redis_host'</span><span class="p">],</span> <span class="n">config</span><span class="p">[</span><span class="s">'redis_port'</span><span class="p">])</span>
+    <span class="n">template_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span> <span class="s">'templates'</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">jinja_env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span><span class="n">loader</span><span class="o">=</span><span class="n">FileSystemLoader</span><span class="p">(</span><span class="n">template_path</span><span class="p">),</span>
+                                 <span class="n">autoescape</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">render_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">template_name</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">):</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jinja_env</span><span class="o">.</span><span class="n">get_template</span><span class="p">(</span><span class="n">template_name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">context</span><span class="p">),</span> <span class="n">mimetype</span><span class="o">=</span><span class="s">'text/html'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="step-4-the-routing">
+<h2>Step 4: The Routing<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-4-the-routing" title="Permalink to this headline">¶</a></h2>
+<p>Next up is routing.  Routing is the process of matching and parsing the URL to
+something we can use.  Werkzeug provides a flexible integrated routing
+system which we can use for that.  The way it works is that you create a
+<a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/routing/#werkzeug.routing.Map" title="werkzeug.routing.Map"><code class="xref py py-class docutils literal"><span class="pre">Map</span></code></a> instance and add a bunch of
+<a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/routing/#werkzeug.routing.Rule" title="werkzeug.routing.Rule"><code class="xref py py-class docutils literal"><span class="pre">Rule</span></code></a> objects.  Each rule has a pattern it will
+try to match the URL against and an “endpoint”.  The endpoint is typically
+a string and can be used to uniquely identify the URL.  We could also use
+this to automatically reverse the URL, but that’s not what we will do in this
+tutorial.</p>
+<p>Just put this into the constructor:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="bp">self</span><span class="o">.</span><span class="n">url_map</span> <span class="o">=</span> <span class="n">Map</span><span class="p">([</span>
+    <span class="n">Rule</span><span class="p">(</span><span class="s">'/'</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="s">'new_url'</span><span class="p">),</span>
+    <span class="n">Rule</span><span class="p">(</span><span class="s">'/&lt;short_id&gt;'</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="s">'follow_short_link'</span><span class="p">),</span>
+    <span class="n">Rule</span><span class="p">(</span><span class="s">'/&lt;short_id&gt;+'</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="s">'short_link_details'</span><span class="p">)</span>
+<span class="p">])</span>
+</pre></div>
+</div>
+<p>Here we create a URL map with three rules.  <code class="docutils literal"><span class="pre">/</span></code> for the root of the URL
+space where we will just dispatch to a function that implements the logic
+to create a new URL.  And then one that follows the short link to the
+target URL and another one with the same rule but a plus (<code class="docutils literal"><span class="pre">+</span></code>) at the
+end to show the link details.</p>
+<p>So how do we find our way from the endpoint to a function?  That’s up to you.
+The way we will do it in this tutorial is by calling the method <code class="docutils literal"><span class="pre">on_</span></code>
++ endpoint on the class itself.  Here is how this works:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">dispatch_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+    <span class="n">adapter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_map</span><span class="o">.</span><span class="n">bind_to_environ</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">endpoint</span><span class="p">,</span> <span class="n">values</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">match</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s">'on_'</span> <span class="o">+</span> <span class="n">endpoint</span><span class="p">)(</span><span class="n">request</span><span class="p">,</span> <span class="o">**</span><span class="n">values</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">HTTPException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">e</span>
+</pre></div>
+</div>
+<p>We bind the URL map to the current environment and get back a
+<code class="xref py py-class docutils literal"><span class="pre">URLAdapter</span></code>.  The adapter can be used to match
+the request but also to reverse URLs.  The match method will return the
+endpoint and a dictionary of values in the URL.  For instance the rule for
+<code class="docutils literal"><span class="pre">follow_short_link</span></code> has a variable part called <code class="docutils literal"><span class="pre">short_id</span></code>.  When we go
+to <code class="docutils literal"><span class="pre">http://localhost:5000/foo</span></code> we will get the following values back:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">endpoint</span> <span class="o">=</span> <span class="s">'follow_short_link'</span>
+<span class="n">values</span> <span class="o">=</span> <span class="p">{</span><span class="s">'short_id'</span><span class="p">:</span> <span class="s">u'foo'</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>If it does not match anything, it will raise a
+<a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/exceptions/#werkzeug.exceptions.NotFound" title="werkzeug.exceptions.NotFound"><code class="xref py py-exc docutils literal"><span class="pre">NotFound</span></code></a> exception, which is an
+<a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/exceptions/#werkzeug.exceptions.HTTPException" title="werkzeug.exceptions.HTTPException"><code class="xref py py-exc docutils literal"><span class="pre">HTTPException</span></code></a>.  All HTTP exceptions are also
+WSGI applications by themselves which render a default error page.  So we
+just catch all of them down and return the error itself.</p>
+<p>If all works well, we call the function <code class="docutils literal"><span class="pre">on_</span></code> + endpoint and pass it the
+request as argument as well as all the URL arguments as keyword arguments
+and return the response object that method returns.</p>
+</div>
+<div class="section" id="step-5-the-first-view">
+<h2>Step 5: The First View<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-5-the-first-view" title="Permalink to this headline">¶</a></h2>
+<p>Let’s start with the first view: the one for new URLs:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">on_new_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="s">''</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s">'POST'</span><span class="p">:</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s">'url'</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_valid_url</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s">'Please enter a valid URL'</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">short_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">insert_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s">'/</span><span class="si">%s</span><span class="s">+'</span> <span class="o">%</span> <span class="n">short_id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_template</span><span class="p">(</span><span class="s">'new_url.html'</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This logic should be easy to understand.  Basically we are checking that
+the request method is POST, in which case we validate the URL and add a
+new entry to the database, then redirect to the detail page.  This means
+we need to write a function and a helper method.  For URL validation this
+is good enough:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">is_valid_url</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parts</span><span class="o">.</span><span class="n">scheme</span> <span class="ow">in</span> <span class="p">(</span><span class="s">'http'</span><span class="p">,</span> <span class="s">'https'</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For inserting the URL, all we need is this little method on our class:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">insert_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+    <span class="n">short_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'reverse-url:'</span> <span class="o">+</span> <span class="n">url</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">short_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">short_id</span>
+    <span class="n">url_num</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">incr</span><span class="p">(</span><span class="s">'last-url-id'</span><span class="p">)</span>
+    <span class="n">short_id</span> <span class="o">=</span> <span class="n">base36_encode</span><span class="p">(</span><span class="n">url_num</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s">'url-target:'</span> <span class="o">+</span> <span class="n">short_id</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s">'reverse-url:'</span> <span class="o">+</span> <span class="n">url</span><span class="p">,</span> <span class="n">short_id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">short_id</span>
+</pre></div>
+</div>
+<p><code class="docutils literal"><span class="pre">reverse-url:</span></code> + the URL will store the short id.  If the URL was
+already submitted this won’t be None and we can just return that value
+which will be the short ID.  Otherwise we increment the <code class="docutils literal"><span class="pre">last-url-id</span></code>
+key and convert it to base36.  Then we store the link and the reverse
+entry in redis.  And here the function to convert to base 36:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">base36_encode</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">number</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="s">'positive integer required'</span>
+    <span class="k">if</span> <span class="n">number</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s">'0'</span>
+    <span class="n">base36</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="n">number</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">number</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="mi">36</span><span class="p">)</span>
+        <span class="n">base36</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">'0123456789abcdefghijklmnopqrstuvwxyz'</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    <span class="k">return</span> <span class="s">''</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">base36</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>So what is missing for this view to work is the template.  We will create
+this later, let’s first also write the other views and then do the
+templates in one go.</p>
+</div>
+<div class="section" id="step-6-redirect-view">
+<h2>Step 6: Redirect View<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-6-redirect-view" title="Permalink to this headline">¶</a></h2>
+<p>The redirect view is easy.  All it has to do is to look for the link in
+redis and redirect to it.  Additionally we will also increment a counter
+so that we know how often a link was clicked:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">on_follow_short_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">short_id</span><span class="p">):</span>
+    <span class="n">link_target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'url-target:'</span> <span class="o">+</span> <span class="n">short_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">link_target</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NotFound</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">incr</span><span class="p">(</span><span class="s">'click-count:'</span> <span class="o">+</span> <span class="n">short_id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">link_target</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this case we will raise a <a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/exceptions/#werkzeug.exceptions.NotFound" title="werkzeug.exceptions.NotFound"><code class="xref py py-exc docutils literal"><span class="pre">NotFound</span></code></a> exception
+by hand if the URL does not exist, which will bubble up to the
+<code class="docutils literal"><span class="pre">dispatch_request</span></code> function and be converted into a default 404
+response.</p>
+</div>
+<div class="section" id="step-7-detail-view">
+<h2>Step 7: Detail View<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-7-detail-view" title="Permalink to this headline">¶</a></h2>
+<p>The link detail view is very similar, we just render a template
+again.  In addition to looking up the target, we also ask redis for the
+number of times the link was clicked and let it default to zero if such
+a key does not yet exist:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">on_short_link_details</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">short_id</span><span class="p">):</span>
+    <span class="n">link_target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'url-target:'</span> <span class="o">+</span> <span class="n">short_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">link_target</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NotFound</span><span class="p">()</span>
+    <span class="n">click_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'click-count:'</span> <span class="o">+</span> <span class="n">short_id</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_template</span><span class="p">(</span><span class="s">'short_link_details.html'</span><span class="p">,</span>
+        <span class="n">link_target</span><span class="o">=</span><span class="n">link_target</span><span class="p">,</span>
+        <span class="n">short_id</span><span class="o">=</span><span class="n">short_id</span><span class="p">,</span>
+        <span class="n">click_count</span><span class="o">=</span><span class="n">click_count</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>Please be aware that redis always works with strings, so you have to convert
+the click count to <a class="reference external" href="http://docs.python.org/dev/library/functions.html#int" title="(in Python v3.5)"><code class="xref py py-class docutils literal"><span class="pre">int</span></code></a> by hand.</p>
+</div>
+<div class="section" id="step-8-templates">
+<h2>Step 8: Templates<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-8-templates" title="Permalink to this headline">¶</a></h2>
+<p>And here are all the templates.  Just drop them into the <cite>templates</cite>
+folder.  Jinja2 supports template inheritance, so the first thing we will
+do is create a layout template with blocks that act as placeholders.  We
+also set up Jinja2 so that it automatically escapes strings with HTML
+rules, so we don’t have to spend time on that ourselves.  This prevents
+XSS attacks and rendering errors.</p>
+<p><em>layout.html</em>:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">&lt;!doctype html&gt;</span>
+<span class="nt">&lt;title&gt;</span><span class="cp">{%</span> <span class="k">block</span> <span class="nv">title</span> <span class="cp">%}{%</span> <span class="k">endblock</span> <span class="cp">%}</span> | shortly<span class="nt">&lt;/title&gt;</span>
+<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">stylesheet</span> <span class="na">href=</span><span class="s">/static/style.css</span> <span class="na">type=</span><span class="s">text/css</span><span class="nt">&gt;</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">box</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;h1&gt;&lt;a</span> <span class="na">href=</span><span class="s">/</span><span class="nt">&gt;</span>shortly<span class="nt">&lt;/a&gt;&lt;/h1&gt;</span>
+  <span class="nt">&lt;p</span> <span class="na">class=</span><span class="s">tagline</span><span class="nt">&gt;</span>Shortly is a URL shortener written with Werkzeug
+  <span class="cp">{%</span> <span class="k">block</span> <span class="nv">body</span> <span class="cp">%}{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+<span class="nt">&lt;/div&gt;</span>
+</pre></div>
+</div>
+<p><em>new_url.html</em>:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">"layout.html"</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">title</span> <span class="cp">%}</span>Create New Short URL<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">body</span> <span class="cp">%}</span>
+  <span class="nt">&lt;h2&gt;</span>Submit URL<span class="nt">&lt;/h2&gt;</span>
+  <span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">""</span> <span class="na">method=</span><span class="s">post</span><span class="nt">&gt;</span>
+    <span class="cp">{%</span> <span class="k">if</span> <span class="nv">error</span> <span class="cp">%}</span>
+      <span class="nt">&lt;p</span> <span class="na">class=</span><span class="s">error</span><span class="nt">&gt;&lt;strong&gt;</span>Error:<span class="nt">&lt;/strong&gt;</span> <span class="cp">{{</span> <span class="nv">error</span> <span class="cp">}}</span>
+    <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+    <span class="nt">&lt;p&gt;</span>URL:
+      <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">text</span> <span class="na">name=</span><span class="s">url</span> <span class="na">value=</span><span class="s">"</span><span class="cp">{{</span> <span class="nv">url</span> <span class="cp">}}</span><span class="s">"</span> <span class="na">class=</span><span class="s">urlinput</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">submit</span> <span class="na">value=</span><span class="s">"Shorten"</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;/form&gt;</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p><em>short_link_details.html</em>:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">"layout.html"</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">title</span> <span class="cp">%}</span>Details about /<span class="cp">{{</span> <span class="nv">short_id</span> <span class="cp">}}{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">body</span> <span class="cp">%}</span>
+  <span class="nt">&lt;h2&gt;&lt;a</span> <span class="na">href=</span><span class="s">"/</span><span class="cp">{{</span> <span class="nv">short_id</span> <span class="cp">}}</span><span class="s">"</span><span class="nt">&gt;</span>/<span class="cp">{{</span> <span class="nv">short_id</span> <span class="cp">}}</span><span class="nt">&lt;/a&gt;&lt;/h2&gt;</span>
+  <span class="nt">&lt;dl&gt;</span>
+    <span class="nt">&lt;dt&gt;</span>Full link
+    <span class="nt">&lt;dd</span> <span class="na">class=</span><span class="s">link</span><span class="nt">&gt;&lt;div&gt;</span><span class="cp">{{</span> <span class="nv">link_target</span> <span class="cp">}}</span><span class="nt">&lt;/div&gt;</span>
+    <span class="nt">&lt;dt&gt;</span>Click count:
+    <span class="nt">&lt;dd&gt;</span><span class="cp">{{</span> <span class="nv">click_count</span> <span class="cp">}}</span>
+  <span class="nt">&lt;/dl&gt;</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="step-9-the-style">
+<h2>Step 9: The Style<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-9-the-style" title="Permalink to this headline">¶</a></h2>
+<p>For this to look better than ugly black and white, here a simple
+stylesheet that goes along:</p>
+<div class="highlight-css"><div class="highlight"><pre><span class="nt">body</span>        <span class="p">{</span> <span class="k">background</span><span class="o">:</span> <span class="m">#E8EFF0</span><span class="p">;</span> <span class="k">margin</span><span class="o">:</span> <span class="m">0</span><span class="p">;</span> <span class="k">padding</span><span class="o">:</span> <span class="m">0</span><span class="p">;</span> <span class="p">}</span>
+<span class="nt">body</span><span class="o">,</span> <span class="nt">input</span> <span class="p">{</span> <span class="k">font-family</span><span class="o">:</span> <span class="s1">'Helvetica Neue'</span><span class="o">,</span> <span class="n">Arial</span><span class="o">,</span>
+              <span class="k">sans-serif</span><span class="p">;</span> <span class="k">font-weight</span><span class="o">:</span> <span class="m">300</span><span class="p">;</span> <span class="k">font-size</span><span class="o">:</span> <span class="m">18px</span><span class="p">;</span> <span class="p">}</span>
+<span class="nc">.box</span>        <span class="p">{</span> <span class="k">width</span><span class="o">:</span> <span class="m">500px</span><span class="p">;</span> <span class="k">margin</span><span class="o">:</span> <span class="m">60px</span> <span class="k">auto</span><span class="p">;</span> <span class="k">padding</span><span class="o">:</span> <span class="m">20px</span><span class="p">;</span>
+              <span class="k">background</span><span class="o">:</span> <span class="nb">white</span><span class="p">;</span> <span class="n">box</span><span class="o">-</span><span class="n">shadow</span><span class="o">:</span> <span class="m">0</span> <span class="m">1px</span> <span class="m">4px</span> <span class="m">#BED1D4</span><span class="p">;</span>
+              <span class="k">border</span><span class="o">-</span><span class="n">radius</span><span class="o">:</span> <span class="m">2px</span><span class="p">;</span> <span class="p">}</span>
+<span class="nt">a</span>           <span class="p">{</span> <span class="k">color</span><span class="o">:</span> <span class="m">#11557C</span><span class="p">;</span> <span class="p">}</span>
+<span class="nt">h1</span><span class="o">,</span> <span class="nt">h2</span>      <span class="p">{</span> <span class="k">margin</span><span class="o">:</span> <span class="m">0</span><span class="p">;</span> <span class="k">color</span><span class="o">:</span> <span class="m">#11557C</span><span class="p">;</span> <span class="p">}</span>
+<span class="nt">h1</span> <span class="nt">a</span>        <span class="p">{</span> <span class="k">text-decoration</span><span class="o">:</span> <span class="k">none</span><span class="p">;</span> <span class="p">}</span>
+<span class="nt">h2</span>          <span class="p">{</span> <span class="k">font-weight</span><span class="o">:</span> <span class="k">normal</span><span class="p">;</span> <span class="k">font-size</span><span class="o">:</span> <span class="m">24px</span><span class="p">;</span> <span class="p">}</span>
+<span class="nc">.tagline</span>    <span class="p">{</span> <span class="k">color</span><span class="o">:</span> <span class="m">#888</span><span class="p">;</span> <span class="k">font-style</span><span class="o">:</span> <span class="k">italic</span><span class="p">;</span> <span class="k">margin</span><span class="o">:</span> <span class="m">0</span> <span class="m">0</span> <span class="m">20px</span> <span class="m">0</span><span class="p">;</span> <span class="p">}</span>
+<span class="nc">.link</span> <span class="nt">div</span>   <span class="p">{</span> <span class="k">overflow</span><span class="o">:</span> <span class="k">auto</span><span class="p">;</span> <span class="k">font-size</span><span class="o">:</span> <span class="m">0.8em</span><span class="p">;</span> <span class="k">white-space</span><span class="o">:</span> <span class="n">pre</span><span class="p">;</span>
+              <span class="k">padding</span><span class="o">:</span> <span class="m">4px</span> <span class="m">10px</span><span class="p">;</span> <span class="k">margin</span><span class="o">:</span> <span class="m">5px</span> <span class="m">0</span><span class="p">;</span> <span class="k">background</span><span class="o">:</span> <span class="m">#E5EAF1</span><span class="p">;</span> <span class="p">}</span>
+<span class="nt">dt</span>          <span class="p">{</span> <span class="k">font-weight</span><span class="o">:</span> <span class="k">normal</span><span class="p">;</span> <span class="p">}</span>
+<span class="nc">.error</span>      <span class="p">{</span> <span class="k">background</span><span class="o">:</span> <span class="m">#E8EFF0</span><span class="p">;</span> <span class="k">padding</span><span class="o">:</span> <span class="m">3px</span> <span class="m">8px</span><span class="p">;</span> <span class="k">color</span><span class="o">:</span> <span class="m">#11557C</span><span class="p">;</span>
+              <span class="k">font-size</span><span class="o">:</span> <span class="m">0.9em</span><span class="p">;</span> <span class="k">border</span><span class="o">-</span><span class="n">radius</span><span class="o">:</span> <span class="m">2px</span><span class="p">;</span> <span class="p">}</span>
+<span class="nc">.urlinput</span>   <span class="p">{</span> <span class="k">width</span><span class="o">:</span> <span class="m">300px</span><span class="p">;</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="bonus-refinements">
+<h2>Bonus: Refinements<a class="headerlink" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#bonus-refinements" title="Permalink to this headline">¶</a></h2>
+<p>Look at the implementation in the example dictionary in the Werkzeug
+repository to see a version of this tutorial with some small refinements
+such as a custom 404 page.</p>
+<ul class="simple">
+<li><a class="reference external" href="https://github.com/mitsuhiko/werkzeug/blob/master/examples/shortly">shortly in the example folder</a></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><p class="logo"><a href="http://werkzeug.pocoo.org/docs/0.10/">
+  <img class="logo" src="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/werkzeug.png" alt="Logo">
+</a></p>
+  <h3><a href="http://werkzeug.pocoo.org/docs/0.10/">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#">Werkzeug Tutorial</a><ul>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#introducing-shortly">Introducing Shortly</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-0-a-basic-wsgi-introduction">Step 0: A Basic WSGI Introduction</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-1-creating-the-folders">Step 1: Creating the Folders</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-2-the-base-structure">Step 2: The Base Structure</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#intermezzo-running-the-application">Intermezzo: Running the Application</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-3-the-environment">Step 3: The Environment</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-4-the-routing">Step 4: The Routing</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-5-the-first-view">Step 5: The First View</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-6-redirect-view">Step 6: Redirect View</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-7-detail-view">Step 7: Detail View</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-8-templates">Step 8: Templates</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#step-9-the-style">Step 9: The Style</a></li>
+<li><a class="reference internal" href="http://werkzeug.pocoo.org/docs/0.10/tutorial/#bonus-refinements">Bonus: Refinements</a></li>
+</ul>
+</li>
+</ul>
+<h3>Versions</h3>
+<ul class="versions">
+  
+    
+      
+        
+      
+      <li><a href="http://werkzeug.pocoo.org/docs/dev/tutorial/">Development</a>
+    
+    <span class="note">(unstable)</span>
+  
+    
+      </li><li><a href="./Werkzeug Tutorial — Werkzeug Documentation (0.10)_files/Werkzeug Tutorial — Werkzeug Documentation (0.10).html" class="current">Werkzeug 0.10.x</a>
+    
+    <span class="note">(stable)</span>
+  
+    
+      
+        
+      
+      </li><li><a href="http://werkzeug.pocoo.org/docs/0.9/tutorial/">Werkzeug 0.9.x</a>
+    
+    <span class="note">(stable)</span>
+  
+</li></ul><h3>Related Topics</h3>
+<ul>
+  <li><a href="http://werkzeug.pocoo.org/docs/0.10/">Documentation overview</a><ul>
+      <li>Previous: <a href="http://werkzeug.pocoo.org/docs/0.10/transition/" title="previous chapter">Transition to Werkzeug 1.0</a></li>
+      <li>Next: <a href="http://werkzeug.pocoo.org/docs/0.10/levels/" title="next chapter">API Levels</a></li>
+  </ul></li>
+</ul>
+<div id="searchbox">
+  <h3>Quick search</h3>
+    <form class="search" action="http://werkzeug.pocoo.org/docs/0.10/search/" method="get">
+      <input type="text" name="q">
+      <input type="submit" value="Go">
+    </form>
+</div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      © Copyright 2011, The Werkzeug Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a>.
+    </div>
+  
+  
+</body></html>
