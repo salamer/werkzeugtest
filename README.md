@@ -6,12 +6,12 @@ a werkzeug application to create the url
 使用的是redis作为数据库
 
 
-使用:
+#使用:
 
-pip install werkzeug
+    pip install werkzeug
 
-pip install redis
+    pip install redis
 
-cd shortly
+    cd shortly
 
-python werkzeugdemo.py
+    python werkzeugdemo.py
